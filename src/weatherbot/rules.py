@@ -31,11 +31,11 @@ def _by_temperature(temp, prev, season, margin):
     if season == "warm":
         return Advice.OPEN if temp <= 23 else Advice.CLOSE if temp >= 25 else prev
     if season == "transition":
-        low, high = 13, 25
+        low, high = 10, 25
         inside = low + margin <= temp <= high - margin
         outside = temp < low or temp > high
         return Advice.OPEN if inside else Advice.CLOSE if outside else prev
-    return Advice.OPEN if temp >= 13 else Advice.CLOSE if temp <= 15 else prev  # cold
+    return Advice.OPEN if temp >= 10 else Advice.CLOSE if temp <= 15 else prev  # cold
 
 
 def decide(temp: float, prev: Advice | None, season: str,
