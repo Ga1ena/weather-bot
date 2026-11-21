@@ -1,7 +1,9 @@
 import pytest
 from datetime import date
-from weatherbot.rules import Advice, decide, season_for, aqi_label
+from weatherbot.rules import (Advice, aqi_label, decide, LOW, HIGH, season_for)
 
+MARGIN = 1.0   # запас по умолчанию в decide()
+MID = (LOW + HIGH) / 2
 
 @pytest.mark.parametrize("day, expected", [
     (date(2026, 3, 31), "cold"),
@@ -19,17 +21,18 @@ def test_season_for(day, expected):
     assert season_for(day) == expected
 
 @pytest.mark.parametrize("temp, prev, expected", [
-    (9.9,  Advice.OPEN,  Advice.CLOSE),   # ниже диапазона
-    (10.0, Advice.OPEN,  None),           # граница: остаёмся в «открыто»
-    (10.5, Advice.CLOSE, None),           # запас: пока не предлагаем открывать
-    (11.0, Advice.CLOSE, Advice.OPEN),    # уверенно внутри
-    (18.0, Advice.CLOSE, Advice.OPEN),
-    (18.0, Advice.OPEN,  None),
-    (24.0, Advice.CLOSE, Advice.OPEN),
-    (24.5, Advice.CLOSE, None),           # запас сверху
-    (25.0, Advice.OPEN,  None),           # граница: ещё в диапазоне
-    (25.1, Advice.OPEN,  Advice.CLOSE),   # выше диапазона
+    (LOW - 0.1,   Advice.OPEN,  Advice.CLOSE),   # ниже диапазона
+    (LOW,         Advice.OPEN,  None),           # граница: остаёмся в «открыто»
+    (LOW + 0.5,   Advice.CLOSE, None),           # запас: пока не предлагаем открывать
+    (LOW + MARGIN, Advice.CLOSE, Advice.OPEN),   # уверенно внутри
+    (MID,         Advice.CLOSE, Advice.OPEN),
+    (MID,         Advice.OPEN,  None),
+    (HIGH - MARGIN, Advice.CLOSE, Advice.OPEN),
+    (HIGH - 0.5,  Advice.CLOSE, None),           # запас сверху
+    (HIGH,        Advice.OPEN,  None),           # граница: ещё в диапазоне
+    (HIGH + 0.1,  Advice.OPEN,  Advice.CLOSE),   # выше диапазона
 ])
+
 def test_decide_transition(temp, prev, expected):
     assert decide(temp, prev, "transition") == expected
 

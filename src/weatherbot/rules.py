@@ -3,6 +3,7 @@ from enum import Enum
 
 TRANSITION_MONTHS = {4, 10}   # апрель, октябрь
 WARM_MONTHS = range(5, 10)    # май-сентябрь
+LOW, HIGH = 10, 25  # нижний и верхний лимиты диапазона проветривания
 
 AQI_LIMIT = 100    # выше этого окна не открываем
 AQI_MARGIN = 10
@@ -31,9 +32,8 @@ def _by_temperature(temp, prev, season, margin):
     if season == "warm":
         return Advice.OPEN if temp <= 23 else Advice.CLOSE if temp >= 25 else prev
     if season == "transition":
-        low, high = 10, 25
-        inside = low + margin <= temp <= high - margin
-        outside = temp < low or temp > high
+        inside = LOW + margin <= temp <= HIGH - margin
+        outside = temp < LOW or temp > HIGH
         return Advice.OPEN if inside else Advice.CLOSE if outside else prev
     return Advice.OPEN if temp >= 10 else Advice.CLOSE if temp <= 15 else prev  # cold
 
