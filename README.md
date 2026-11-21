@@ -1,6 +1,6 @@
 # weather-bot
 
-![tests](https://github.com/Ga1ena/weather-bot/actions/workflows/tests.yml/badge.svg)
+![tests](https://github.com/Ga1ena/weather-bot/actions/workflows/test.yml/badge.svg)
 
 Telegram-бот, который следит за температурой и качеством воздуха (AQI)
 и подсказывает, когда открывать и закрывать окна. Команда `/status`
