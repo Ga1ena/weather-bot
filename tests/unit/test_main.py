@@ -74,3 +74,28 @@ def test_failed_notification_is_retried_next_run(runner):
     assert not state_file.exists()            # состояние не сохранено
     assert run(18.0) == Advice.OPEN           # следующий запуск отправит
     assert len(sent) == 1
+
+
+def test_heating_on_when_temperature_drops(runner):
+    run, sent, state_file = runner
+    run(4.0, today=date(2026, 1, 15))
+    assert any("включать отопление" in m for m in sent)
+    # оба совета лежат в одном файле и не затирают друг друга
+    assert json.loads(state_file.read_text()) == {"advice": "close", "heating": "on"}
+
+
+def test_heating_off_message_only_after_on(runner):
+    run, sent, _ = runner
+    run(20.0)                                    # тепло: отопление и не включали
+    assert not any("отоплен" in m for m in sent)
+    run(4.0, today=date(2026, 1, 15))
+    run(8.0, today=date(2026, 1, 16))
+    assert any("можно выключить" in m for m in sent)
+
+
+def test_no_duplicate_heating_notification(runner):
+    run, sent, _ = runner
+    run(4.0, today=date(2026, 1, 15))
+    count = len(sent)
+    run(3.5, today=date(2026, 1, 15))
+    assert len(sent) == count

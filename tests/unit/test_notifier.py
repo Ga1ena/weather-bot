@@ -59,3 +59,10 @@ def test_from_env_builds_working_notifier(monkeypatch):
                         lambda text, token, chat_id: sent.append((text, token, chat_id)))
     notifier.telegram_from_env()("hi")
     assert sent == [("hi", "123:ABC", "42")]
+
+
+def test_read_credentials_names_missing_variable(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_TOKEN", "123:ABC")
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
+    with pytest.raises(RuntimeError, match="TELEGRAM_CHAT_ID"):
+        notifier.read_credentials()

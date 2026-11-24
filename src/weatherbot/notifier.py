@@ -27,8 +27,10 @@ def telegram_notify(text: str, token: str, chat_id: str, timeout: int = 10) -> N
 def read_credentials() -> tuple[str, str]:
     token = os.environ.get("TELEGRAM_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
-    if not token or not chat_id:
-        raise RuntimeError("Не заданы TELEGRAM_TOKEN и TELEGRAM_CHAT_ID")
+    missing = [name for name, value in (("TELEGRAM_TOKEN", token),
+                                        ("TELEGRAM_CHAT_ID", chat_id)) if not value]
+    if missing:
+        raise RuntimeError(f"Не заданы переменные окружения: {', '.join(missing)}")
     return token, chat_id
 
 

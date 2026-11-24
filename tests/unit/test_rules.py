@@ -1,6 +1,7 @@
 import pytest
 from datetime import date
-from weatherbot.rules import (Advice, aqi_label, decide, LOW, HIGH, season_for)
+from weatherbot.rules import (Advice, aqi_label, decide, LOW, HIGH, season_for, decide_heating, Heating, COLD_OPEN_MIN,
+                              COLD_CLOSE_MAX, WARM_OPEN_MAX, WARM_CLOSE_MIN, describe_rule, heating_state)
 
 MARGIN = 1.0   # запас по умолчанию в decide()
 MID = (LOW + HIGH) / 2
@@ -20,6 +21,28 @@ MID = (LOW + HIGH) / 2
 def test_season_for(day, expected):
     assert season_for(day) == expected
 
+
+@pytest.mark.parametrize("temp, prev, expected", [
+    (COLD_OPEN_MIN,       Advice.CLOSE, Advice.OPEN),    # граница: открыть
+    (COLD_OPEN_MIN - 0.1, Advice.CLOSE, None),           # промежуточная зона
+    (COLD_CLOSE_MAX + 0.1, Advice.OPEN, None),
+    (COLD_CLOSE_MAX,      Advice.OPEN,  Advice.CLOSE),   # граница: закрыть
+    (COLD_CLOSE_MAX - 5,  Advice.CLOSE, None),           # и так закрыто
+])
+def test_decide_cold(temp, prev, expected):
+    assert decide(temp, prev, "cold") == expected
+
+
+@pytest.mark.parametrize("temp, prev, expected", [
+    (WARM_OPEN_MAX, Advice.CLOSE, Advice.OPEN),
+    ((WARM_OPEN_MAX + WARM_CLOSE_MIN) / 2, Advice.CLOSE, None),
+    (WARM_CLOSE_MIN, Advice.OPEN, Advice.CLOSE),
+    (WARM_CLOSE_MIN, Advice.CLOSE, None),
+])
+def test_decide_warm(temp, prev, expected):
+    assert decide(temp, prev, "warm") == expected
+
+
 @pytest.mark.parametrize("temp, prev, expected", [
     (LOW - 0.1,   Advice.OPEN,  Advice.CLOSE),   # ниже диапазона
     (LOW,         Advice.OPEN,  None),           # граница: остаёмся в «открыто»
@@ -35,6 +58,18 @@ def test_season_for(day, expected):
 
 def test_decide_transition(temp, prev, expected):
     assert decide(temp, prev, "transition") == expected
+
+
+def test_cold_season_dead_zone_keeps_previous_advice():
+    mid = (COLD_CLOSE_MAX + COLD_OPEN_MIN) / 2
+    assert decide(mid, Advice.CLOSE, "cold", aqi=71) is None
+    assert decide(mid, Advice.OPEN, "cold", aqi=71) is None
+
+
+def test_describe_rule_cold_mentions_thresholds():
+    assert f"≥{COLD_OPEN_MIN}" in describe_rule("cold")
+    assert f"≤{COLD_CLOSE_MAX}" in describe_rule("cold")
+
 
 def run(temps, season, prev=None):
     """Прогоняет серию замеров, как это делал бы бот, и собирает отправленные советы."""
@@ -72,3 +107,41 @@ def test_decide_with_air_quality(prev, aqi, expected):
 ])
 def test_aqi_label(aqi, label):
     assert aqi_label(aqi) == label
+
+
+@pytest.mark.parametrize("temp, prev, expected", [
+    (5.0,  None,         Heating.ON),    # граница: включить
+    (4.9,  Heating.OFF,  Heating.ON),
+    (5.0,  Heating.ON,   None),          # уже включено, не повторяем
+    (6.0,  Heating.ON,   None),          # промежуточная зона: ждём
+    (6.0,  Heating.OFF,  None),
+    (6.9,  Heating.ON,   None),
+    (7.0,  Heating.ON,   Heating.OFF),   # граница: выключить
+    (7.0,  Heating.OFF,  None),
+    (20.0, None,         None),          # тепло, отопление не включали: молчим
+])
+def test_decide_heating(temp, prev, expected):
+    assert decide_heating(temp, prev) == expected
+
+
+def test_heating_cycle_over_a_cold_snap():
+    state, sent = None, []
+    for t in [9, 7.5, 6, 5.2, 4.8, 4, 5.5, 6.5, 6.9, 7.0, 8, 5.0]:
+        new = decide_heating(t, state)
+        if new:
+            sent.append(new)
+            state = new
+    assert sent == [Heating.ON, Heating.OFF, Heating.ON]
+
+
+@pytest.mark.parametrize("temp, prev, expected", [
+    (4.0, None,         Heating.ON),
+    (4.0, Heating.OFF,  Heating.ON),
+    (8.0, None,         Heating.OFF),
+    (8.0, Heating.ON,   Heating.OFF),
+    (6.0, None,         Heating.OFF),    # без истории считаем выключенным
+    (6.0, Heating.ON,   Heating.ON),     # промежуточная зона: держится прошлый
+    (6.0, Heating.OFF,  Heating.OFF),
+])
+def test_heating_state(temp, prev, expected):
+    assert heating_state(temp, prev) == expected

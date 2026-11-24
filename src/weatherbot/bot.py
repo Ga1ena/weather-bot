@@ -41,8 +41,10 @@ async def periodic_check(context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 def main() -> None:
-    load_dotenv(PROJECT_ROOT / ".env")
     setup_logging()
+    env_file = PROJECT_ROOT / ".env"
+    if not load_dotenv(env_file, override=True):
+        log.warning("Файл .env не найден по пути %s", env_file)
     token, chat_id = notifier.read_credentials()
     notify = notifier.telegram_from_env()
 
